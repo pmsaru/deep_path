@@ -2,15 +2,19 @@ from PIL import Image
 import numpy as np 
 from fastai.tabular.learner import load_learner
 from fastai import *
-from fastai.vision import *
+from fastai.vision.all import *
 import torch
 import sys
 import warnings
 import json
+import glob
+import os
 
 
-def predict(img,model):
+def predict(imfile,fname):
     # load the pre trained model
+    img = load_image(imfile)
+    model=fname+'.pkl'
     learn_inf = load_learner(model)
     learn_inf.dls.vocab
     pred_class,pred_idx,probs = learn_inf.predict(img)
@@ -21,13 +25,12 @@ def predict(img,model):
         pred_class='non_meta'
     deep_dict = {
         "class": pred_class,
-        "prob" : float(probs[pred_idx])
+        "im_id" : imfile.split('/')[-1].split('.')[0]
     }
-    fname=model.split('.')[0]
     # create json object and write to a file
     deep_json = json.dumps(deep_dict, indent=2)
-    with open(fname + ".json", "w") as outfile:
-        outfile.write(deep_json)
+    return deep_json
+   
 
 
     # print('predicted Class: {} '.format(pred_class) )
@@ -44,14 +47,38 @@ def load_image(img):
 args = sys.argv[1:] # read the first argument
 
 # Checking the Format of the page
-# if args[0] == '-s':        
+if args[0] == '-s':        
     # Load a single image for prediction
-img = load_image(args[0])    
-print("Image Uploaded Successfully")
-predict(img,args[1])
-# else:
-#     print('Use {python <filename.py> s followed by the filename} to run single test image\n \
-#            Use {python <filename.py> b followed by the filename} to run batch of test images')
+    lst=args[1].split('/')
+    lst.pop()
+    lst.pop()
+    s='/'
+    lst=s.join(lst)
+    try:
+        os.remove(lst + '/' + args[2] + '.json')
+    except:
+        print("json file is updated")
+    else:
+        print("json file is newly updated")   
+    print("Image Uploaded Successfully")
+    deep_json=predict(args[1],args[2])
+    
+    with open(lst + '/' + args[2] + ".json", "a") as outfile:
+        outfile.write(deep_json)
+elif(args[0] == '-d'):
+    try:
+        os.remove(args[1] +'/'+args[2]+'.json')
+    except:
+        print("json file is updated")
+    else:
+        print("json file is newly updated")
+    model=args[2]
+    # path= os.getcwd() +'/'+ args[1] 
+    path= args[1]
+    for im in glob.glob(path +'/**/*.*'):
+        deep_json=predict(im,model)
+        with open(args[1]+ '/' + args[2] + ".json", "a") as outfile:
+            outfile.write(deep_json)
 
 
-
+    
